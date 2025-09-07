@@ -1,1 +1,3 @@
+# by default ignore everything
 *
+# use `git add -f my_file` to add something forcefully
