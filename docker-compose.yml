@@ -1,21 +1,29 @@
-version: "3.9"
 services:
   spark-master:
-    image: jpazzini/mapd-b:spark-master
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-master
     ports:
       - 8080:8080       
       - 7077:7077       
     volumes:
       - .:/mapd-workspace
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark-master
 
   spark-worker:
-    image: jpazzini/mapd-b:spark-worker
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     depends_on:
       - spark-master
     volumes:
       - .:/mapd-workspace
     environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
       - SPARK_WORKER_CORES=2        
       - SPARK_WORKER_MEMORY=4g      
 
@@ -33,3 +41,4 @@ services:
       - .:/mapd-workspace
     environment:
       - SPARK_DRIVER_MEMORY=4g      
+      - PYSPARK_SUBMIT_ARGS=--master spark://spark-master:7077 pyspark-shell
