@@ -23,6 +23,17 @@ def get_clusterId(
 ) -> npt.ArrayLike:
     return np.argmin(centroidDistances)
 
+def cost_function(
+    data: RDD, 
+    centroids: npt.ArrayLike
+) -> float:
+    minDistance_rdd = data \
+        .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids))))
+    cost = minDistance_rdd \
+        .map(lambda x: x[1]) \
+        .sum()
+    return cost
+
 # --- INITIALIZE CENTROIDS ---
 
 @singledispatch
@@ -50,7 +61,7 @@ def _(
     data: npt.NDArray,
     k: int
 ) -> npt.NDArray:
-    centroids = data[np.random.choice(data.shape[0], size = k), :]
+    centroids = data[np.random.choice(data.shape[0], size = k, replace = False), :]
     return centroids
 
 def kMeansPlusPlus_init(
@@ -62,8 +73,13 @@ def kMeansPlusPlus_init(
     Standard kMeans++ initialization method:
     given `data` (eventually weighted), returns `k` cluster centroids
     """
-    if weights.shape[0] == 0:
-        weights = np.ones(shape=(data.shape[0],1))
+    # Ensure weights is a 1D array aligned with data points
+    if weights.size == 0:
+        weights = np.ones(shape=(data.shape[0],), dtype=float)
+    else:
+        weights = np.asarray(weights, dtype=float).reshape(-1)
+        if weights.shape[0] != data.shape[0]:
+            raise ValueError("weights length must match number of data points")
     
     centroids = data[np.random.randint(0, data.shape[0]),:].reshape(1, -1) # reshaping for easier stacking
     
@@ -71,11 +87,20 @@ def kMeansPlusPlus_init(
         # since the original functions are made for map
         # we need to loop over the data
         minDistance_array = np.array(
-            [get_minDistance(compute_centroidDistances(datum, centroids)) for datum in data]
-        ) * weights # multiplyling by the weight simulates multiple copies of the same datum
+            [get_minDistance(compute_centroidDistances(datum, centroids)) for datum in data],
+            dtype=float
+        )
+        # Multiply by the weight simulates multiple copies of the same datum
+        minDistance_array = minDistance_array * weights
+        
         total_minDistance = np.sum(minDistance_array)
         # sampling probability proportional to minDistance
-        new_centroid_idx = np.random.choice(minDistance_array.shape[0], size = 1, p = minDistance_array / total_minDistance)
+        if not np.isfinite(total_minDistance) or np.isclose(total_minDistance, 0):
+            # Fallback to uniform probabilities to avoid division by zero
+            probs = np.ones_like(minDistance_array) / minDistance_array.shape[0]
+        else:
+            probs = (minDistance_array / total_minDistance).ravel()
+        new_centroid_idx = np.random.choice(minDistance_array.shape[0], size=1, p=probs)
         new_centroid = data[new_centroid_idx,:].reshape(1, -1)
 
         # edge case in which the same centroid is selected twice:
@@ -89,7 +114,7 @@ def kMeansParallel_init(
     data_rdd: RDD,
     k: int,
     l: float,
-    r: int=0,
+    r: int = 0,
 ) -> npt.NDArray:
     """
     kMeans|| initialization method:
@@ -111,8 +136,10 @@ def kMeansParallel_init(
         .map(lambda x: x[1]) \
         .sum()
 
-    if r!=0: iterations = int(np.ceil(np.log(cost))) if (cost > 1) else 1
-    else: iterations = r
+    if r == 0: 
+        iterations = int(np.ceil(np.log(cost))) if (cost > 1) else 1
+    else: 
+        iterations = r
 
     for _ in range(iterations):
         new_centroids = np.array(
@@ -145,7 +172,7 @@ def kMeansParallel_init(
         .countByKey()
     
     clusterCounts = np.array([w[1] for w in clusterCounts.items()])
-    centroids = kMeansNaive(
+    centroids = naiveKMeans(
         centroids, 
         kMeansPlusPlus_init(centroids, k, clusterCounts)
     )
