@@ -1,6 +1,12 @@
 import numpy as np
 import numpy.typing as npt
 
+from functools import singledispatch
+
+from pyspark.rdd import RDD
+
+# --- BASIC OPERATIONS ---
+
 def compute_centroidDistances(
     x: npt.NDArray, 
     centroids: npt.NDArray
@@ -16,3 +22,265 @@ def get_clusterId(
     centroidDistances: npt.NDArray
 ) -> npt.ArrayLike:
     return np.argmin(centroidDistances)
+
+# --- INITIALIZE CENTROIDS ---
+
+@singledispatch
+def kMeansRandom_init(
+    data: RDD | npt.NDArray ,
+    k: int
+) -> npt.NDArray:
+    """
+    Initialize `k` centroids taking random points from `data`.
+    """
+    raise TypeError("Unsupported data type")
+
+@kMeansRandom_init.register(RDD)
+def _(
+    data: RDD,
+    k: int
+) -> npt.NDArray:
+    centroids = np.array(
+        data.takeSample(withReplacement=False, num=k)
+    )
+    return centroids
+
+@kMeansRandom_init.register(np.ndarray)
+def _(
+    data: npt.NDArray,
+    k: int
+) -> npt.NDArray:
+    centroids = data[np.random.choice(data.shape[0], size = k), :]
+    return centroids
+
+def kMeansPlusPlus_init(
+    data: npt.NDArray,
+    k: int,
+    weights: npt.NDArray = np.array([])
+) -> npt.NDArray:
+    """
+    Standard kMeans++ initialization method:
+    given `data` (eventually weighted), returns `k` cluster centroids
+    """
+    if weights.shape[0] == 0:
+        weights = np.ones(shape=(data.shape[0],1))
+    
+    centroids = data[np.random.randint(0, data.shape[0]),:].reshape(1, -1) # reshaping for easier stacking
+    
+    while (centroids.shape[0] < k):
+        # since the original functions are made for map
+        # we need to loop over the data
+        minDistance_array = np.array(
+            [get_minDistance(compute_centroidDistances(datum, centroids)) for datum in data]
+        ) * weights # multiplyling by the weight simulates multiple copies of the same datum
+        total_minDistance = np.sum(minDistance_array)
+        # sampling probability proportional to minDistance
+        new_centroid_idx = np.random.choice(minDistance_array.shape[0], size = 1, p = minDistance_array / total_minDistance)
+        new_centroid = data[new_centroid_idx,:].reshape(1, -1)
+
+        # edge case in which the same centroid is selected twice:
+        # redo the iteration without saving the centroid
+        if any(np.array_equal(new_centroid, row) for row in centroids): continue
+        centroids = np.concatenate((centroids, new_centroid), axis = 0)
+
+    return centroids
+
+def kMeansParallel_init(
+    data_rdd: RDD,
+    k: int,
+    l: float
+) -> npt.NDArray:
+    """
+    kMeans|| initialization method:
+    returns `k` good `centroids`.
+    `l` controls the probability of each point
+    in `data_rdd` of being sampled as a pre-processed centroid.
+    """
+
+    centroids = np.array(
+        data_rdd.takeSample(num=1, withReplacement=False)
+    )
+    
+    minDistance_rdd = data_rdd \
+        .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids)))) \
+        .persist()
+
+    cost = minDistance_rdd \
+        .map(lambda x: x[1]) \
+        .sum()
+
+    iterations = int(np.ceil(np.log(cost))) if (cost > 1) else 1
+    for _ in range(iterations):
+        new_centroids = np.array(
+            minDistance_rdd \
+                .filter(lambda x: np.random.rand() < np.min((l * x[1] / cost, 1))) \
+                .map(lambda x: x[0]) \
+                .collect()
+        )
+        # edge case in which no new centroid is sampled:
+        # this avoids the following `np.concatenate` to fail
+        if len(new_centroids.shape) < 2:
+            continue
+
+        minDistance_rdd.unpersist()
+        centroids = np.unique(
+            np.concatenate((centroids, new_centroids), axis = 0), 
+            axis = 0
+        )
+
+        minDistance_rdd = data_rdd \
+            .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids)))) \
+            .persist()
+        cost = minDistance_rdd \
+            .map(lambda x: x[1]) \
+            .sum()
+    
+    minDistance_rdd.unpersist()
+    clusterCounts = data_rdd \
+        .map(lambda x: (get_clusterId(compute_centroidDistances(x, centroids)), 1)) \
+        .countByKey()
+    
+    clusterCounts = np.array([w[1] for w in clusterCounts.items()])
+    centroids = kMeansNaive(
+        centroids, 
+        kMeansPlusPlus_init(centroids, k, clusterCounts)
+    )
+    
+    return centroids
+
+# --- UPDATE CENTROIDS ---
+
+@singledispatch
+def naiveKMeans(
+    data: RDD | npt.NDArray,
+    centroids: npt.NDArray,
+    epochs: int = 10
+) -> npt.NDArray:
+    raise TypeError("Unsupported data type")
+
+@naiveKMeans.register(np.ndarray)
+def _(
+    data: npt.NDArray,
+    centroids: npt.NDArray,
+    epochs: int = 10
+) -> npt.NDArray:
+    """
+    Standard kMeans algorithm serial implementation:
+    given `data`, updates the (k) `centroids` for `epochs` times,
+    improving the clustering each time
+    """
+    k = centroids.shape[0]
+    for _ in range(epochs):
+        assignments = np.array(
+            [get_clusterId(compute_centroidDistances(x, centroids)) for x in data]
+        )
+        centroids = np.array(
+            [np.mean(data[assignments==i,:], axis = 0) if i in assignments else centroids[i:] for i in range(k)]
+        )
+    return centroids
+
+@naiveKMeans.register(RDD)
+def _(
+    data_rdd: RDD,
+    centroids: npt.NDArray,
+    epochs: int = 10
+) -> npt.NDArray:
+    """
+    Standard kMeans algorithm parallel implementation:
+    given `data`, updates the (k) `centroids` for `epochs` times,
+    improving the clustering each time
+    """
+    k = centroids.shape[0]
+    for _ in range(epochs):
+        # assign each point to the closest cluster
+        data_assigned_rdd = data_rdd \
+            .map(lambda x: (get_clusterId(compute_centroidDistances(x, centroids)), 1, x)) \
+            .persist()
+        
+        # counting how many assigments per cluster
+        clusterWeights_dict = data_assigned_rdd \
+            .map(lambda x: (x[0], x[1])) \
+            .countByKey()
+        
+        # compute the numerator term
+        clusterSums_dict = dict(data_assigned_rdd \
+                .map(lambda x: (x[0], x[2])) \
+                .reduceByKey(lambda x, y: x + y) \
+                .collect()
+        )
+
+        # compute the weighted average (they are the updated clusters). 
+        # If no counts maintain the older centroid values
+        centroids = np.array(
+                [clusterSums_dict[i]/clusterWeights_dict[i] 
+                if i in clusterWeights_dict.keys() else centroids[i,:]
+                for i in range(k)]
+            )
+        
+        # free memory
+        data_assigned_rdd.unpersist()
+        
+    return centroids
+
+def miniBatchKMeans(
+    data_rdd: RDD,
+    centroids: npt.NDArray,
+    iterations: int = 10,
+    batch_fraction: float = 0.1
+) -> npt.NDArray:
+    """
+    Mini-batch K-Means implementation with exponential averaging for centroid updates.
+    """
+    k = centroids.shape[0]
+    clusterCounters = np.zeros((k,)) # 1 / learning_rate
+    for iter in range(iterations):
+        miniBatch_rdd = data_rdd \
+            .sample(withReplacement=False, fraction=batch_fraction)
+        miniBatch_rdd = miniBatch_rdd \
+            .map(lambda x: (get_clusterId(compute_centroidDistances(x, centroids)), 1, x)) \
+            .persist()
+        
+        # counting how many assigments per cluster
+        clusterCounts_dict = miniBatch_rdd \
+            .map(lambda x: (x[0], x[1])) \
+            .countByKey()
+        clusterCounts = np.array(
+            [clusterCounts_dict[i] if i in clusterCounts_dict.keys() else 0 for i in range(k)]
+        )
+        clusterCounters += clusterCounts
+        
+        # edge case in which a cluster has no assignments:
+        # if also its counter is zero the whole iteration is repeated
+        if any(np.isclose(v, 0) for v in clusterCounters): 
+            iter -= 1
+            miniBatch_rdd.unpersist()
+            continue
+        # otherwise its count will be set to 1 to avoid division by 0 in the update step
+        clusterCounts = np.where(clusterCounts >= 1, clusterCounts, 1)
+
+        # summing all points assigned to the same cluster
+        # (in the update step this will be divided by the counts 
+        # in order to get the mean for every cluster).
+        # A dict is used for convenience and consistency with clusterCounts
+        clusterSums_dict = dict(miniBatch_rdd \
+            .map(lambda x: (x[0], x[2])) \
+            .reduceByKey(lambda x, y: x + y) \
+            .collect()
+        )
+        # edge case in which a cluster has no assignments:
+        # the centroid is returned instead of 0 
+        # (which would have been the sum of its assigned points) 
+        # in order to not update its position 
+        # (note how the terms cancel out in the update step)
+        clusterSums = np.array(
+            [clusterSums_dict[i] if i in clusterSums_dict.keys() else centroids[i,:] for i in range(k)]
+        )
+
+        # update step: c <- (1 - eta) * c + eta * x_mean
+        # (note x_mean = x_sums / c_count)
+        centroids = (1 - 1 / clusterCounters).reshape(-1, 1) * centroids + \
+                    (1 / (clusterCounters * clusterCounts)).reshape(-1, 1) * clusterSums
+        
+        miniBatch_rdd.unpersist()
+        
+    return centroids
