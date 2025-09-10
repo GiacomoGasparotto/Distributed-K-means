@@ -15,6 +15,7 @@ def sparkSetup(
         .set("spark.archives", f"{env_path}#environment") \
         .set("spark.executor.memory", "4096m")
 
+    # when in docker .master("spark://spark-master:7077")
     spark = SparkSession \
         .builder \
         .master("spark://master:7077") \
