@@ -18,8 +18,8 @@ def sparkSetup(
     env_path = "environment.tar.gz"
     env_path = os.path.abspath(env_path)
     conf = SparkConf() \
-        .set("spark.archives", f"{env_path}#environment") \
-        .set("spark.executor.memory", "4096m")
+        .set("spark.executor.memory", "4096m") \
+        .set("spark.archives", f"{env_path}#environment")
 
     # when in docker .master("spark://spark-master:7077")
     spark = SparkSession \
@@ -46,7 +46,7 @@ def kddSetup(
         if isinstance(kdd_data[0,i], bytes) 
     }
     for key, values in entries_dict.items():
-    kdd_data[:,key] = values[1]
+        kdd_data[:,key] = values[1]
     # and then cast everything into a float
     kdd_data = kdd_data.astype(float)
 
