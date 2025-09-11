@@ -20,15 +20,38 @@ def sparkSetup(
     conf = SparkConf() \
         .set("spark.archives", f"{env_path}#environment") \
         .set("spark.executor.memory", "4096m")
-
     # when in docker .master("spark://spark-master:7077")
     spark = SparkSession \
         .builder \
-        .master("spark://master:7077") \
+        .master("spark://spark-master:7077") \
         .appName(appName) \
         .config(conf = conf) \
         .getOrCreate()
     return spark
+
+def local_sparkSetup(
+    appName: str
+) -> SparkSession:
+    """
+    Returns a `SparkSession` properly configured for the Docker compose
+    cluster (master: spark-master:7077). If an `environment.tar.gz` archive
+    is present in the project root, it will be distributed via
+    `spark.archives`; otherwise that setting is skipped.
+    """
+    conf = SparkConf().set("spark.executor.memory", "4096m")
+    env_path = os.path.abspath("environment.tar.gz")
+    if os.path.exists(env_path):
+        conf = conf.set("spark.archives", f"{env_path}#environment")
+
+    spark = (
+        SparkSession.builder
+        .master("spark://spark-master:7077")
+        .appName(appName)
+        .config(conf=conf)
+        .getOrCreate()
+    )
+    return spark
+
 
 def kddSetup(
     standardize: bool = True

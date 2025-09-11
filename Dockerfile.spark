@@ -1,9 +1,0 @@
-FROM bitnami/spark:3.5.1
-
-# Optionally install extra Python libs on cluster nodes
-USER root
-RUN pip install --no-cache-dir scikit-learn pandas matplotlib seaborn || true
-USER 1001
-
-# The Bitnami entrypoint will read SPARK_MODE and SPARK_MASTER_URL
-# so we don't set CMD here; docker-compose will pass env vars per service.
