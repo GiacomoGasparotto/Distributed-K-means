@@ -1,32 +1,35 @@
+version: "3.9"
 services:
   spark-master:
     image: jpazzini/mapd-b:spark-master
     container_name: spark-master
-    platform: linux/amd64
     ports:
-      - 8080:8080   
-      - 7077:7077
+      - 8080:8080       
+      - 7077:7077       
     volumes:
-      - $PWD:/mapd-workspace
+      - .:/mapd-workspace
+
   spark-worker:
     image: jpazzini/mapd-b:spark-worker
     depends_on:
       - spark-master
-    platform: linux/amd64
     volumes:
-      - $PWD:/mapd-workspace
+      - .:/mapd-workspace
     environment:
-      - SPARK_WORKER_CORES=1
-      - SPARK_WORKER_MEMORY=1g
+      - SPARK_WORKER_CORES=2        
+      - SPARK_WORKER_MEMORY=4g      
+
   jupyter-notebook:
-    image: jpazzini/mapd-b:spark-jupyter
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
     container_name: jupyter-notebook
     depends_on:
       - spark-master
-    platform: linux/amd64
     ports:
-      - 4040:4040   # related to the status of the application running inside the cluster (if no app no connection)
-      - 1234:8888   # 
+      - 4040:4040       
+      - 1234:8888       
     volumes:
-      - $PWD:/mapd-workspace
-
+      - .:/mapd-workspace
+    environment:
+      - SPARK_DRIVER_MEMORY=4g      

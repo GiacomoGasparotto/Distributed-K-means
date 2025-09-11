@@ -214,7 +214,8 @@ def _(
 def _(
     data_rdd: RDD,
     centroids: npt.NDArray,
-    epochs: int = 10
+    epochs: int = 10,
+    true_cost: float | None = None
 ) -> npt.NDArray:
     """
     Standard kMeans algorithm parallel implementation:
@@ -251,6 +252,11 @@ def _(
         # free memory
         data_assigned_rdd.unpersist()
         
+        # assess convergence: optional early exit if a reference cost is provided
+        if true_cost is not None and true_cost > 0:
+            e_cost = cost_function(data_rdd, centroids)
+            if e_cost / true_cost > 10:
+                return centroids
     return centroids
 
 def miniBatchKMeans(
