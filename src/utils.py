@@ -18,8 +18,8 @@ def sparkSetup(
     env_path = "environment.tar.gz"
     env_path = os.path.abspath(env_path)
     conf = SparkConf() \
-        .set("spark.executor.memory", "4096m") \
-        .set("spark.archives", f"{env_path}#environment")
+        .set("spark.archives", f"{env_path}#environment") \
+        .set("spark.executor.memory", "6244m")
 
     # when in docker .master("spark://spark-master:7077")
     spark = SparkSession \
@@ -41,9 +41,9 @@ def kddSetup(
     )
     # transform bytes entries into integers
     entries_dict = {
-    i: np.unique(kdd_data[:,i], return_inverse=True) 
-    for i in range(kdd_data.shape[1]) 
-        if isinstance(kdd_data[0,i], bytes) 
+        i: np.unique(kdd_data[:,i], return_inverse=True) 
+            for i in range(kdd_data.shape[1]) 
+                if isinstance(kdd_data[0,i], bytes) 
     }
     for key, values in entries_dict.items():
         kdd_data[:,key] = values[1]
