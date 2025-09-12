@@ -180,6 +180,50 @@ def kMeansParallel_init(
     return centroids
 
 # --- UPDATE CENTROIDS ---
+@singledispatch
+def early_stop(
+        data: RDD,
+        e: int,
+        old_centroids: npt.ArrayLike,
+        centroids: npt.ArrayLike,
+        stop_centroids: float = 0,   
+        stop_cost: float = 1e-4,
+        check_cost_every: int = 1, 
+) -> bool:
+    raise TypeError("Unsupported data type")
+
+@early_stop.register
+def _(
+        data: RDD,
+        e: int,
+        old_centroids: npt.ArrayLike,
+        centroids: npt.ArrayLike,
+        stop_centroids: float = 0,   
+        stop_cost: float = 1e-4,
+        check_cost_every: int = 1, 
+) -> bool:
+    """
+    Methods to assess convergence:
+    1) Centroid movement -> stop when maximum centroid displacement falls below a tolerance
+    2) Cost's relative improvement across iterations -> stop when relative decrease in psi_X(C) below a tolerance
+    3) Stop when no labels change
+    """
+    # 1) centroid-movement convergence
+    if stop_centroids > 0.0:
+        max_shift = np.linalg.norm(centroids - old_centroids, axis=1).max()
+        if max_shift <= stop_centroids:
+            return centroids
+
+    # 2) cost-improvement convergence
+    if stop_cost > 0.0 and ((e + 1) % check_cost_every == 0):
+        prev_cost = cost_function(data, old_centroids)
+        cur_cost  = cost_function(data, centroids)
+        if prev_cost is not None:
+            rel_impr = (prev_cost - cur_cost) / max(prev_cost, 1e-12)
+            if rel_impr <= stop_cost:
+                return True
+    
+    # 3) TBC...
 
 @singledispatch
 def naiveKMeans(
@@ -222,8 +266,8 @@ def _(
     data_rdd: RDD,
     centroids: npt.NDArray,
     epochs: int = 10,
-    tol_centroids: float = 1e-4,   
-    tol_cost: float = 1e-4,
+    stop_centroids: float = 1e-4,   
+    stop_cost: float = 1e-4,
     check_cost_every: int = 1, 
 ) -> npt.NDArray:
     """
@@ -264,26 +308,21 @@ def _(
         # free memory
         data_assigned_rdd.unpersist()
 
-        # 1) centroid-movement convergence (cheap, no extra passes)
-        max_shift = np.linalg.norm(centroids - old_centroids, axis=1).max()
-        if max_shift <= tol_centroids:
+        # check convergence
+        if early_stop(data_rdd, e, old_centroids, centroids, stop_centroids, stop_cost, check_cost_every): 
             return centroids
 
-        # 2) objective-improvement convergence (extra pass)
-        if tol_cost > 0.0 and ((e + 1) % check_cost_every == 0):
-            cur_cost = cost_function(data_rdd, centroids)
-            if prev_cost is not None:
-                rel_impr = (prev_cost - cur_cost) / max(prev_cost, 1e-12)
-                if rel_impr <= tol_cost:
-                    return centroids
-            prev_cost = cur_cost
     return centroids
+
 
 def miniBatchKMeans(
     data_rdd: RDD,
     centroids: npt.NDArray,
     iterations: int = 10,
-    batch_fraction: float = 0.1
+    batch_fraction: float = 0.1,
+    stop_centroids: float = 1e-4,   
+    stop_cost: float = 1e-4,
+    check_cost_every: int = 1,
 ) -> npt.NDArray:
     """
     Mini-batch K-Means implementation with exponential averaging for centroid updates.
@@ -332,12 +371,17 @@ def miniBatchKMeans(
         clusterSums = np.array(
             [clusterSums_dict[i] if i in clusterSums_dict.keys() else centroids[i,:] for i in range(k)]
         )
-
+        # store old centroids for early stop
+        old_centroids = centroids
         # update step: c <- (1 - eta) * c + eta * x_mean
         # (note x_mean = x_sums / c_count)
         centroids = (1 - 1 / clusterCounters).reshape(-1, 1) * centroids + \
                     (1 / (clusterCounters * clusterCounts)).reshape(-1, 1) * clusterSums
         
         miniBatch_rdd.unpersist()
+
+        # check convergence
+        if early_stop(data_rdd, iter, old_centroids, centroids, stop_centroids, stop_cost, check_cost_every): 
+            return centroids
         
     return centroids
