@@ -62,16 +62,17 @@ def _(
             if i in clusterMetrics.keys() else centroids[i,:]
             for i in range(k)]
         )
-        if early_stop(data, e, old_centroids): break
-
-
+        if early_stop(data, e, old_centroids, centroids): 
+            print(f"CONVERGED! in {e} iterations") 
+            break
     return centroids
 
 def miniBatchKMeans(
     data_rdd: RDD,
     centroids: npt.NDArray,
     epochs: int = 10,
-    batch_fraction: float = 0.1
+    batch_fraction: float = 0.1,
+    patience: int = 3
 ) -> npt.NDArray:
     """
     Mini-batch K-Means implementation with exponential averaging for centroid updates.
@@ -106,7 +107,7 @@ def miniBatchKMeans(
                     (1 / ((clusterCounters + 1) * clusterCounts)).reshape(-1, 1) * clusterSums
         # store olde centroids
         history_centroids.append(centroids)
-        if early_stop(data_rdd, iter, np.mean(history_centroids[iter-5:], axis=0), centroids): 
-            print("CONVERGED! in {e} iterations") 
+        if iter>patience and early_stop(data_rdd, iter, np.mean(history_centroids[iter-patience:], axis=0), centroids): 
+            print(f"CONVERGED! in {iter} iterations") 
             break
     return centroids
