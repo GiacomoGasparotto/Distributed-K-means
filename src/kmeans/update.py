@@ -5,7 +5,7 @@ from functools import singledispatch
 
 from pyspark.rdd import RDD
 
-from .base import compute_centroidDistances, get_clusterId, get_minDistance
+from .base import compute_centroidDistances, get_clusterId, early_stop
 
 @singledispatch
 def lloydKMeans(
@@ -46,12 +46,15 @@ def _(
     improving the clustering each time
     """
     k = centroids.shape[0]
-    for _ in range(epochs):
+    for e in range(epochs):
         clusterMetrics = dict(data \
             .map(lambda x: (get_clusterId(compute_centroidDistances(x, centroids)), (1, x))) \
             .reduceByKey(lambda x, y: (x[0] + y[0], x[1] + y[1])) \
             .collect()
         )
+        # store old centroids
+        old_centroids = centroids.copy()
+
         # compute the weighted average (they are the updated clusters). 
         # If no counts maintain the older centroid values
         centroids = np.array(
@@ -59,6 +62,8 @@ def _(
             if i in clusterMetrics.keys() else centroids[i,:]
             for i in range(k)]
         )
+        if early_stop(data, e, old_centroids): break
+
 
     return centroids
 
@@ -72,6 +77,7 @@ def miniBatchKMeans(
     Mini-batch K-Means implementation with exponential averaging for centroid updates.
     """
     k = centroids.shape[0]
+    history_centroids = []
     clusterCounters = np.zeros(shape=(k,)) # 1 / learning_rate
     for iter in range(epochs):
         miniBatch_rdd = data_rdd \
@@ -93,10 +99,14 @@ def miniBatchKMeans(
             clusterCounters[i] += clusterMetrics[i][0]
             clusterCounts[i] = max(clusterMetrics[i][0],1)
             clusterSums[i,:] = clusterMetrics[i][1]
-        
+
         # update step: c <- (1 - eta) * c + eta * x_mean
         # (note x_mean = x_sums / c_count)
         centroids = (1 - 1 / (clusterCounters + 1)).reshape(-1, 1) * centroids + \
                     (1 / ((clusterCounters + 1) * clusterCounts)).reshape(-1, 1) * clusterSums
-
+        # store olde centroids
+        history_centroids.append(centroids)
+        if early_stop(data_rdd, iter, np.mean(history_centroids[iter-5:], axis=0), centroids): 
+            print("CONVERGED!") 
+            break
     return centroids

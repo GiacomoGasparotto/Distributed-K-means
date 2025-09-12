@@ -106,7 +106,8 @@ def kMeansParallel_init(
     else: 
         iterations = r
 
-    for _ in range(iterations):
+    iter = 0
+    while (iter < iterations) or (centroids.shape[0] < k):
         new_centroids = np.array(
             minDistance_rdd \
                 .filter(lambda x: np.random.rand() < np.min([l * x[1] / cost, 1])) \
@@ -130,6 +131,8 @@ def kMeansParallel_init(
         cost = minDistance_rdd \
             .map(lambda x: x[1]) \
             .sum()
+        
+        iter += 1
     
     minDistance_rdd.unpersist()
     clusterCounts = data_rdd \
