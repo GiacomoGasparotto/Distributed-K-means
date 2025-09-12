@@ -3,7 +3,7 @@ import numpy.typing as npt
 
 from functools import singledispatch
 
-from pyspark.rdd import RDD
+from pyspark.rdd import RDD # type: ignore
 
 # --- BASIC OPERATIONS ---
 
