@@ -98,20 +98,14 @@ $SPARK_HOME/sbin/stop-all.sh
 
 ## Docker
 
-How It Works
-
-+ Compose with build:: Docker builds images from your local Dockerfiles (no private repo needed). It still pulls the public base images in your FROM ... lines the first time.
-
-+ Single Spark Dockerfile: Both spark-master and spark-worker use Dockerfile.spark; their roles are selected by env vars (SPARK_MODE) handled by Bitnami’s entrypoint.
-
-+ Jupyter → Spark master: PYSPARK_SUBMIT_ARGS is set so PySpark in Jupyter connects to spark://spark-master:7077 by default.
++ Compose with build:: Docker builds images from your local Dockerfiles (or private repo e.g. ´jpazzini/mapd-b:spark-worker´).
 
 Build And Run
 
 + Build locally: docker compose build --no-cache
 
-+ Start services: docker compose up -d
++ Start services: docker compose up -d --scale spark-worker=3
 
-+ Get Jupyter token: docker compose logs -f jupyter-notebook (open http://localhost:1234)
++ Jupyter NB UI: http://localhost:1234
 
 + Spark UIs: Master http://localhost:8080, Driver http://localhost:4040
