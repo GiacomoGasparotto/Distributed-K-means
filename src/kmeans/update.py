@@ -107,6 +107,6 @@ def miniBatchKMeans(
         # store olde centroids
         history_centroids.append(centroids)
         if early_stop(data_rdd, iter, np.mean(history_centroids[iter-5:], axis=0), centroids): 
-            print("CONVERGED!") 
+            print("CONVERGED! in {e} iterations") 
             break
     return centroids
