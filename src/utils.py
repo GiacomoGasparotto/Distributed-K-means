@@ -48,7 +48,7 @@ def kddSetup(
     for key, values in entries_dict.items():
         kdd_data[:,key] = values[1]
     # and then cast everything into a float
-    kdd_data = kdd_data.astype(float)
+    kdd_data = kdd_data.astype(np.float32)
 
     # standardizing the dataset
     if standardize:
