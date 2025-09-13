@@ -11,9 +11,9 @@ Dataset:
 Pipeline:
 - Test algos with GM
 - Plots:
-    - Score vs variance
-    - time vs algo
-    - cost vs r (with kmeans++ as baseline)
+    - Score vs variance DONE
+    - time vs algo DONE
+    - cost vs r (with kmeans++ as baseline) DONE
 
 # Update analysis
 

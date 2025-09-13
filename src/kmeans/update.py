@@ -62,7 +62,7 @@ def _(
             if i in clusterMetrics.keys() else centroids[i,:]
             for i in range(k)]
         )
-        if early_stop(data, e, old_centroids): break
+        if early_stop(data, e, old_centroids, centroids): break
 
 
     return centroids
