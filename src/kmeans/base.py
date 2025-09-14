@@ -60,7 +60,7 @@ def _(
 
 def early_stop(
         data: RDD | npt.NDArray,
-        e: int,
+        iter: int,
         old_centroids: npt.NDArray,
         centroids: npt.NDArray,
         stop_centroids: bool = False,   
@@ -77,7 +77,7 @@ def early_stop(
     if stop_centroids: 
         if np.allclose(centroids, old_centroids): return True
     # 2) cost-improvement convergence
-    if stop_cost > 0.0 and ((e + 1) % check_cost_every == 0):
+    if stop_cost > 0.0 and ((iter + 1) % check_cost_every == 0):
         prev_cost = compute_cost(data, old_centroids)
         cur_cost  = compute_cost(data, centroids)
         if prev_cost is not None:

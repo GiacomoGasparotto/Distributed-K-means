@@ -1,11 +1,9 @@
 import numpy as np
 import numpy.typing as npt
-import os
 
 # dataset
 from sklearn.datasets import fetch_kddcup99
 from sklearn.preprocessing import StandardScaler
-
 
 def get_kdd(
     standardize: bool = True
@@ -30,7 +28,7 @@ def get_kdd(
     # standardizing the dataset
     if standardize:
         scaler = StandardScaler()
-        kdd_data = scaler.fit_transform(kddData)
+        kddData = scaler.fit_transform(kddData)
     return kddData, kddLabels, entries_dict
 
 def get_gm(
@@ -51,6 +49,6 @@ def get_gm(
     ).astype(np.float32)
     if standardize:
         scaler = StandardScaler().fit(gmData)
-        gmData = scaler.transform(gmData).astype(np.float32)
-        gmCenters = scaler.transform(gmCenters).astype(np.float32)
+        gmData = scaler.transform(gmData)
+        gmCenters = scaler.transform(gmCenters)
     return gmData, gmCenters

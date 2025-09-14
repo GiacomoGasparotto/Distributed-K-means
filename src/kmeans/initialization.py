@@ -39,8 +39,7 @@ def _(
 def kMeansPlusPlus_init(
     data: npt.NDArray,
     k: int,
-    weights: npt.NDArray = np.array([]),
-    manual_gc: bool = True
+    weights: npt.NDArray = np.array([])
 ) -> npt.NDArray:
     """
     Standard kMeans++ initialization method:
@@ -81,14 +80,13 @@ def kMeansPlusPlus_init(
         if any(np.array_equal(new_centroid, row) for row in centroids): continue
         centroids = np.concatenate((centroids, new_centroid), axis = 0)
         
-
     return centroids
 
 def kMeansParallel_init(
     data_rdd: RDD,
     k: int,
     l: float,
-    r: int = 0,
+    r: int = 0
 ) -> npt.NDArray:
     """
     kMeans|| initialization method:
@@ -135,7 +133,7 @@ def kMeansParallel_init(
             np.concatenate((centroids, new_centroids), axis = 0), 
             axis = 0
         )
-
+        
         minDistance_rdd = data_rdd \
             .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids)))) \
             .persist()
