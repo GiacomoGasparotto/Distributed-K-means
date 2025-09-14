@@ -11,7 +11,8 @@ from .base import compute_centroidDistances, get_clusterId, early_stop
 def lloydKMeans(
     data: RDD | npt.NDArray,
     centroids: npt.NDArray,
-    epochs: int = 10
+    epochs: int = 10,
+    verbose: bool = False
 ) -> npt.NDArray:
     raise TypeError("Unsupported data type")
 
@@ -19,7 +20,8 @@ def lloydKMeans(
 def _(
     data: npt.NDArray,
     centroids: npt.NDArray,
-    epochs: int = 10
+    epochs: int = 10,
+    verbose: bool = False
 ) -> npt.NDArray:
     """
     Standard kMeans algorithm serial implementation:
@@ -27,18 +29,23 @@ def _(
     improving the clustering each time
     """
     k = centroids.shape[0]
-    for _ in range(epochs):
+    for e in range(epochs):
         assignments = get_clusterId(compute_centroidDistances(data, centroids))
+        old_centroids = centroids.copy()
         centroids = np.array(
             [np.mean(data[assignments==i,:], axis = 0) if i in assignments else centroids[i,:] for i in range(k)]
         )
+        if early_stop(data, e, old_centroids, centroids): 
+            if verbose: print(f"CONVERGED! in {e} iterations") 
+            break
     return centroids
 
 @lloydKMeans.register(RDD)
 def _(
     data: RDD,
     centroids: npt.NDArray,
-    epochs: int = 10
+    epochs: int = 10,
+    verbose: bool = False
 ) -> npt.NDArray:
     """
     Standard kMeans algorithm parallel implementation:
@@ -63,7 +70,7 @@ def _(
             for i in range(k)]
         )
         if early_stop(data, e, old_centroids, centroids): 
-            print(f"CONVERGED! in {e} iterations") 
+            if verbose: print(f"CONVERGED! in {e} iterations") 
             break
     return centroids
 
@@ -72,7 +79,8 @@ def miniBatchKMeans(
     centroids: npt.NDArray,
     epochs: int = 10,
     batch_fraction: float = 0.1,
-    patience: int = 3
+    patience: int = 3,
+    verbose: bool = False
 ) -> npt.NDArray:
     """
     Mini-batch K-Means implementation with exponential averaging for centroid updates.
@@ -108,6 +116,6 @@ def miniBatchKMeans(
         # store olde centroids
         history_centroids.append(centroids)
         if iter>patience and early_stop(data_rdd, iter, np.mean(history_centroids[iter-patience:], axis=0), centroids): 
-            print(f"CONVERGED! in {iter} iterations") 
+            if verbose: print(f"CONVERGED! in {iter} iterations") 
             break
     return centroids

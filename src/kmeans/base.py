@@ -33,30 +33,28 @@ def get_clusterId(
 def compute_cost(
     data: RDD | npt.NDArray,
     centroids: npt.NDArray
-) -> npt.ArrayLike:
+) -> float:
     raise TypeError("Unsupported data type")
 
 @compute_cost.register(RDD)
 def _(
     data: RDD, 
     centroids: npt.NDArray
-) -> npt.ArrayLike:
+) -> float:
     minDistance_rdd = data \
         .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids))))
     cost = minDistance_rdd \
         .map(lambda x: x[1]) \
         .sum()
     cost /= data.count()
-    return cost
+    return float(cost)
 
 @compute_cost.register(np.ndarray)
 def _(
     data: npt.NDArray,
     centroids: npt.NDArray
-) -> npt.ArrayLike:
-    minDistance = np.array(
-        [get_minDistance(compute_centroidDistances(x, centroids)) for x in data]
-    )
+) -> float:
+    minDistance = get_minDistance(compute_centroidDistances(data, centroids))
     cost = np.sum(minDistance) / data.shape[0]
     return cost
 
