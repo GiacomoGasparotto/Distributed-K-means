@@ -14,14 +14,14 @@ At the heart of k-Means|| lies the initialization procedure, which is depicted i
 
 Algorithm 2: k-means|| (k, ℓ) initialization.
 
-1:   C ← sample a point uniformly at random from X  
-2:   ψ ← ϕX(C)  
-3:   for O(logψ) times do  
-4:     C′ ← sample each point x ∈ X independently with probability px = ℓ⋅d²(x,C)/ϕX(C)  
-5:     C ← C ∪ C′  
+1:   $C \leftarrow$ sample a point uniformly at random from $X$
+2:   $\psi \leftarrow \phi_X(C)$
+3:   for $O(\log{\psi}) times do  
+4:     $C′ \leftarrow$ sample each point $x\in X$ independently with probability $p_x = \ell \cdot d^2(x,C)/\phi_X(C)$ 
+5:     $C \leftarrow C \\cup C'$
 6:   end for  
-7:   For x ∈ C, set wₓ to be the number of points in X closer to x than any other point in C  
-8:   Recluster the weighted points in C into k clusters
+7:   For $x\in C$, set $w_x$ to be the number of points in $X$ closer to $x$ than any other point in $C$
+8:   Recluster the weighted points in $C$ into $k$ clusters
 
 ## 2. Clustering - Mini-batch k-Means||
 
@@ -31,4 +31,4 @@ https://sci-hub.se/10.1145/1772690.1772862
 This approach employs small (mini) batches to optimize k-Means clustering instead of relying on a single large-batch optimization procedure. It has been demonstrated to offer faster convergence and can be implemented to scale k-Means with low computation cost on large datasets.
 
 ------------
-We implement and benchmark the above mentioned algorithm using Spark's distributed framework.
+We implement and benchmark the above mentioned algorithms using Spark's distributed framework.
