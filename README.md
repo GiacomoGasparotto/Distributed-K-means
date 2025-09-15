@@ -14,14 +14,15 @@ At the heart of k-Means|| lies the initialization procedure, which is depicted i
 
 Algorithm 2: k-means|| (k, ℓ) initialization.
 
-1:   $C \leftarrow$ sample a point uniformly at random from $X$
-2:   $\psi \leftarrow \phi_X(C)$
-3:   for $O(\log{\psi}) times do  
-4:     $C′ \leftarrow$ sample each point $x\in X$ independently with probability $p_x = \ell \cdot d^2(x,C)/\phi_X(C)$ 
-5:     $C \leftarrow C \\cup C'$
+1:   C ← sample a point uniformly at random from X  
+2:   ψ ← ϕ_X(C)  
+3:   for O(log ψ) times do  
+4:     C′ ← sample each point x ∈ X independently with probability  
+       pₓ = ℓ ⋅ d²(x, C) / ϕ_X(C)  
+5:     C ← C ∪ C′  
 6:   end for  
-7:   For $x\in C$, set $w_x$ to be the number of points in $X$ closer to $x$ than any other point in $C$
-8:   Recluster the weighted points in $C$ into $k$ clusters
+7:   For x ∈ C, set wₓ to be the number of points in X closer to x than any other point in C  
+8:   Recluster the weighted points in C into k clusters  
 
 ## 2. Clustering - Mini-batch k-Means||
 
