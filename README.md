@@ -13,6 +13,7 @@ A scalable version, referred to as k-Means|| (parallel k-Means), has been introd
 At the heart of k-Means|| lies the initialization procedure, which is depicted in the following pseudo-code as presented in the aforementioned paper:
 
 Algorithm 2: k-means|| (k, ℓ) initialization.
+
 1:   C ← sample a point uniformly at random from X  
 2:   ψ ← ϕX(C)  
 3:   for O(logψ) times do  
