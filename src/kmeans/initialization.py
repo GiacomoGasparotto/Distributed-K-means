@@ -68,7 +68,8 @@ def kMeansPlusPlus_init(
         # in this way `probs` is just a view of `minDistance`.
         # If we were using instead
         # `probs = (minDistance / total_minDistance).reshape(-1)`,
-        # then `probs` would have been stored as a different array
+        # then `probs` would have been stored as a different array.
+        # edit: this wasn't the issue, but anyway...
         minDistance /= total_minDistance # transformation into probabilities
         probs = minDistance.reshape(-1)
 

@@ -131,8 +131,8 @@ def miniBatchKMeans(
 
         # update step: c <- (1 - eta) * c + eta * x_mean
         # (note x_mean = x_sums / c_count)
-        centroids = (1 - 1 / (clusterCounters + 1)).reshape(-1, 1) * centroids + \
-                    (1 / ((clusterCounters + 1) * clusterCounts)).reshape(-1, 1) * clusterSums
+        centroids = (1 - 1 / np.sqrt(clusterCounters + 1)).reshape(-1, 1) * centroids + \
+                    (1 / (np.sqrt(clusterCounters + 1) * clusterCounts)).reshape(-1, 1) * clusterSums
         # store olde centroids
         centroidsHistory.append(centroids)
 

@@ -10,16 +10,17 @@ from pyspark import SparkConf
 from pyspark.sql import SparkSession
 
 def sparkSetup(
-    appName: str       
+    appName: str,
+    env_path: str = "environment.tar.gz",
+    executor_memory: int = 4096
 ) -> SparkSession:
     """
     Returns a `SparkSession` properly configured.
     """
-    env_path = "environment.tar.gz"
     env_path = os.path.abspath(env_path)
     conf = SparkConf() \
         .set("spark.archives", f"{env_path}#environment") \
-        .set("spark.executor.memory", "4096m")
+        .set("spark.executor.memory", f"{executor_memory}m")
 
     # when in docker .master("spark://spark-master:7077")
     spark = SparkSession \
