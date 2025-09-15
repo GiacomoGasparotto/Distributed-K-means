@@ -60,26 +60,33 @@ def kMeansPlusPlus_init(
         total_minDistance = np.sum(minDistance)
 
         # sampling probability proportional to minDistance
-        if not np.isfinite(total_minDistance) or np.isclose(total_minDistance, 0):
+        if (not np.isfinite(total_minDistance)) or np.isclose(total_minDistance, 0):
             # Fallback to uniform probabilities to avoid division by zero
-            probs = np.ones_like(minDistance) / minDistance.shape[0]
-        else:
-            probs = (minDistance / total_minDistance).reshape(-1)
-        new_centroid_idx = np.random.choice(minDistance.shape[0], size=1, p=probs)
+            minDistance = np.ones_like(minDistance)
+            total_minDistance = np.sum(minDistance)
+        # numpy memory management trick:
+        # in this way `probs` is just a view of `minDistance`.
+        # If we were using instead
+        # `probs = (minDistance / total_minDistance).reshape(-1)`,
+        # then `probs` would have been stored as a different array
+        minDistance /= total_minDistance # transformation into probabilities
+        probs = minDistance.reshape(-1)
+
+        new_centroid_idx = np.random.choice(probs.shape[0], size=1, p=probs)
         new_centroid = data[new_centroid_idx,:].reshape(1, -1)
 
         # edge case in which the same centroid is selected twice:
         # redo the iteration without saving the centroid
         if any(np.array_equal(new_centroid, row) for row in centroids): continue
         centroids = np.concatenate((centroids, new_centroid), axis = 0)
-
+        
     return centroids
 
 def kMeansParallel_init(
     data_rdd: RDD,
     k: int,
     l: float,
-    r: int = 0,
+    r: int = 0
 ) -> npt.NDArray:
     """
     kMeans|| initialization method:
@@ -101,12 +108,14 @@ def kMeansParallel_init(
         .map(lambda x: x[1]) \
         .sum()
 
-    if r == 0: 
+    if r < 1: 
         iterations = int(np.ceil(np.log(cost))) if (cost > 1) else 1
     else: 
         iterations = r
 
     iter = 0
+    # edge case in which centroids.shape[0] < k at the end of the iterations:
+    # continue until we have enough centroids
     while (iter < iterations) or (centroids.shape[0] < k):
         new_centroids = np.array(
             minDistance_rdd \
@@ -124,7 +133,7 @@ def kMeansParallel_init(
             np.concatenate((centroids, new_centroids), axis = 0), 
             axis = 0
         )
-
+        
         minDistance_rdd = data_rdd \
             .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids)))) \
             .persist()

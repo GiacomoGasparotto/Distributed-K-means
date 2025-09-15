@@ -33,36 +33,34 @@ def get_clusterId(
 def compute_cost(
     data: RDD | npt.NDArray,
     centroids: npt.NDArray
-) -> npt.ArrayLike:
+) -> float:
     raise TypeError("Unsupported data type")
 
 @compute_cost.register(RDD)
 def _(
     data: RDD, 
     centroids: npt.NDArray
-) -> npt.ArrayLike:
+) -> float:
     minDistance_rdd = data \
         .map(lambda x: (x, get_minDistance(compute_centroidDistances(x, centroids))))
     cost = minDistance_rdd \
         .map(lambda x: x[1]) \
         .sum()
     cost /= data.count()
-    return cost
+    return float(cost)
 
 @compute_cost.register(np.ndarray)
 def _(
     data: npt.NDArray,
     centroids: npt.NDArray
-) -> npt.ArrayLike:
-    minDistance = np.array(
-        [get_minDistance(compute_centroidDistances(x, centroids)) for x in data]
-    )
+) -> float:
+    minDistance = get_minDistance(compute_centroidDistances(data, centroids))
     cost = np.sum(minDistance) / data.shape[0]
     return cost
 
 def early_stop(
         data: RDD | npt.NDArray,
-        e: int,
+        iter: int,
         old_centroids: npt.NDArray,
         centroids: npt.NDArray,
         stop_centroids: bool = False,   
@@ -79,7 +77,7 @@ def early_stop(
     if stop_centroids: 
         if np.allclose(centroids, old_centroids): return True
     # 2) cost-improvement convergence
-    if stop_cost > 0.0 and ((e + 1) % check_cost_every == 0):
+    if stop_cost > 0.0 and ((iter + 1) % check_cost_every == 0):
         prev_cost = compute_cost(data, old_centroids)
         cur_cost  = compute_cost(data, centroids)
         if prev_cost is not None:
