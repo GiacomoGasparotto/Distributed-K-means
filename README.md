@@ -2,7 +2,7 @@
 
 We implement the k-Means|| and Mini-batch k-Means|| algorithms in Spark's distributed framework.
 
-We evaluate the algorithm’s performance using a Gaussian Mixture standard synthetic dataset, and the kddcup99 dataset (https://scikit-learn.org/stable/datasets/real_world.html#kddcup99-dataset) available on Scikit-learn.
+We evaluate the algorithm’s performance using a Gaussian Mixture synthetic dataset, and the kddcup99 dataset (https://scikit-learn.org/stable/datasets/real_world.html#kddcup99-dataset) available on Scikit-learn.
 
 ## 1. Clustering - k-Means||
 
