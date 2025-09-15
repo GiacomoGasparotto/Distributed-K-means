@@ -1,0 +1,4 @@
+FROM jpazzini/mapd-b:spark-jupyter
+
+RUN pip install --no-cache-dir scikit-learn matplotlib pandas seaborn
+
