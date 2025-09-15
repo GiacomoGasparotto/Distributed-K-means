@@ -30,5 +30,5 @@ https://sci-hub.se/10.1145/1772690.1772862
 
 This approach employs small (mini) batches to optimize k-Means clustering instead of relying on a single large-batch optimization procedure. It has been demonstrated to offer faster convergence and can be implemented to scale k-Means with low computation cost on large datasets.
 
-
+------------
 We implement and benchmark the above mentioned algorithm using Spark's distributed framework.
